@@ -11,7 +11,6 @@ function config() {
 
     const config = {};
     lines.map(line => {
-        console.log(line);
         return line.split('=').map(e => e.trim());
     }).forEach(keyvalue => {
         const [key, value] = keyvalue;
@@ -22,7 +21,12 @@ function config() {
 }
 
 function uploadFile(file) {
-    return sftp.connect(config()).then(() => {
+    return sftp.connect(config())
+    .then(async () => {
+        const list = await sftp.list('/uploads/');
+        return Promise.all(list.map(e => sftp.delete(`/uploads/${e.name}`)));
+    })
+    .then(() => {
         return sftp.fastPut(file, '/uploads/' + file);
     }).finally(() => {
         sftp.end();
@@ -63,14 +67,11 @@ const main = async () => {
 
     archive.pipe(output);
 
-    console.log(['**/*',
-    `!${zipFile}`].concat(getExcludedGlobs()));
-
     const files = await globby(['**/*',
     `!${zipFile}`].concat(getExcludedGlobs()));
 
     files.forEach(file => {
-        archive.append(file, { name: file });
+        archive.file(file, { name: file });
     });
 
     await archive.finalize();
